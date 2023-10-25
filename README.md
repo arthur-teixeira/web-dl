@@ -3,11 +3,11 @@ This project was made because YouTube removed the possibility of using ad blocks
 The goal is to download the most recent videos of channels that I follow, and serve them in a Plex server to my local network.
 
 ## Dependencies
-- (yt-dlp)[https://github.com/yt-dlp/yt-dlp]. There is a binary available in the dist/ folder.
-- (ffmpeg)[https://ffmpeg.org/]
-- (Docker)[https://www.docker.com/]
-- (Selenium)[https://www.selenium.dev/]. There is a script in the dist/ folder that downloads the correct version of all the drivers needed. (Taken from the (go selenium package)[https://github.com/tebeka/selenium/blob/master/vendor/init.go]).
-- [Optional] (Plex server)[https://www.plex.tv/pt-br/media-server-downloads/].
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp). There is a binary available in the dist/ folder.
+- [ffmpeg](https://ffmpeg.org/)
+- [Docker](https://www.docker.com/)
+- [Selenium](https://www.selenium.dev/). There is a script in the dist/ folder that downloads the correct version of all the drivers needed. (Taken from the [go selenium package](https://github.com/tebeka/selenium/blob/master/vendor/init.go)).
+- [Optional] [Plex server](https://www.plex.tv/pt-br/media-server-downloads/).
 
 ## Quick start
 
