@@ -109,7 +109,11 @@ func getSources(sources []*repository.Source) (error, []string) {
 	defer wd.Quit()
 
 	var urls []string
-	for _, source := range sources {
+	for i, source := range sources {
+        if i >= 4 { // TODO: arbitrary limit, make it configurable
+            break
+        }
+
 		if err := wd.Get(source.Url); err != nil {
 			panic(err)
 		}
