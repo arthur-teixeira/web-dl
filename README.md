@@ -12,9 +12,11 @@ The goal is to download the most recent videos of channels that I follow, and se
 ## Quick start
 
 ```
-$ cd postgres
+$ cd dist
+$ go run init.go --alsologtostderr  --download_browsers --download_latest
+$ cd ../postgres
 $ docker compose up -d
-$ cd ../
+$ cd ..
 $ go run main.go
 ```
 
