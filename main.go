@@ -37,23 +37,29 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	for _, source := range sources {
+
+	numWorkers := 3
+	linksChan := make(chan []string, len(sources))
+	for i := 1; i <= numWorkers; i++ {
 		wg.Add(1)
-
-		err, links := getSources(source)
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		go func() {
 			defer wg.Done()
-			err = downloadSource(links)
+			err = downloadSource(linksChan)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 
+	for _, source := range sources {
+		err, links := getSources(source)
+		if err != nil {
+			log.Fatal(err)
+		}
+		linksChan <- links
+	}
+
+    close(linksChan)
 	wg.Wait()
 }
 
@@ -76,7 +82,7 @@ func getSources(source *repository.Source) (error, []string) {
 	doc.Find(source.Selector).Each(func(i int, s *goquery.Selection) {
 		val, exists := s.Attr("href")
 		if exists {
-            path := fmt.Sprintf("%s%s\n", source.Prefix, val)
+			path := fmt.Sprintf("%s%s\n", source.Prefix, val)
 			urls = append(urls, path)
 		}
 	})
@@ -84,7 +90,7 @@ func getSources(source *repository.Source) (error, []string) {
 	return nil, urls
 }
 
-func downloadSource(urls []string) error {
+func downloadSource(urls <-chan []string) error {
 	cmd := exec.Command("yt-dlp",
 		"--throttled-rate",
 		"50K",
@@ -108,7 +114,7 @@ func downloadSource(urls []string) error {
 		return err
 	}
 
-	for i, v := range urls {
+	for i, v := range <-urls {
 		_, err = stdin.Write([]byte(v))
 		if err != nil {
 			return err
