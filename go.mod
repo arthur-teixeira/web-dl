@@ -4,16 +4,16 @@ go 1.21.1
 
 require (
 	cloud.google.com/go v0.41.0
-	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/go-github/v27 v27.0.4
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
+	github.com/tebeka/selenium v0.9.9
 	google.golang.org/api v0.7.0
 )
 
 require (
-	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect

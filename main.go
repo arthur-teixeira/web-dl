@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/joho/godotenv"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"sync"
 	"web-dl/db"
 	"web-dl/repository"
+
+	"github.com/joho/godotenv"
+	"github.com/tebeka/selenium"
 )
 
 func main() {
@@ -59,35 +59,56 @@ func main() {
 		linksChan <- links
 	}
 
-    close(linksChan)
+	close(linksChan)
 	wg.Wait()
 }
 
 func getSources(source *repository.Source) (error, []string) {
-	res, err := http.Get(source.Url)
+	const (
+		seleniumPath    = "dist/selenium-server.jar"
+		geckoDriverPath = "dist/geckodriver"
+		port            = 8080
+	)
+
+	opts := []selenium.ServiceOption{
+		selenium.StartFrameBuffer(),           // Start an X frame buffer for the browser to run in.
+		selenium.GeckoDriver(geckoDriverPath), // Specify the path to GeckoDriver in order to use Firefox.
+		selenium.Output(os.Stderr),            // Output debug information to STDERR.
+	}
+
+	log.Println("opening selenium")
+	service, err := selenium.NewSeleniumService(seleniumPath, port, opts...)
 	if err != nil {
 		return err, nil
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status), nil
-	}
+	defer service.Stop()
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	capabilities := selenium.Capabilities{"browserName": "firefox"}
+	wd, err := selenium.NewRemote(capabilities, fmt.Sprintf("http://localhost:%d/wd/hub", port))
 	if err != nil {
 		return err, nil
 	}
+	defer wd.Quit()
 
-	urls := []string{}
-	doc.Find(source.Selector).Each(func(i int, s *goquery.Selection) {
-		val, exists := s.Attr("href")
-		if exists {
+	if err := wd.Get(source.Url); err != nil {
+		panic(err)
+	}
+
+	elems, err := wd.FindElements(selenium.ByCSSSelector, source.Selector)
+	if err != nil {
+		panic(err)
+	}
+
+    var urls []string
+	for _, e := range elems {
+		val, err := e.GetAttribute("href")
+		if err == nil {
 			path := fmt.Sprintf("%s%s\n", source.Prefix, val)
 			urls = append(urls, path)
 		}
-	})
+	}
 
-	return nil, urls
+    return nil, urls
 }
 
 func downloadSource(urls <-chan []string) error {
