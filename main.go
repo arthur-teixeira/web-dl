@@ -9,6 +9,7 @@ import (
 	"sync"
 	"web-dl/db"
 	"web-dl/repository"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/joho/godotenv"
 )
@@ -20,6 +21,12 @@ func main() {
 	}
 
     db, err := db.GetConn()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    migration := repository.NewMigrationRepository(db)
+    err = migration.Migrate()
     if err != nil {
         log.Fatal(err)
     }
@@ -48,6 +55,8 @@ func main() {
 			}
 		}()
 	}
+
+    wg.Wait()
 }
 
 func getSources(source *repository.Source) (error, []string) {
