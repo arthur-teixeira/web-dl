@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"sync"
@@ -36,34 +37,52 @@ func main() {
 		log.Fatal(err)
 	}
 
+	err, links := getSources(sources)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	var wg sync.WaitGroup
 
 	numWorkers := 3
-	linksChan := make(chan []string, len(sources))
-	for i := 1; i <= numWorkers; i++ {
+	chans := splitWork(numWorkers, links)
+
+	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
+		i := i
 		go func() {
 			defer wg.Done()
-			err = downloadSource(linksChan)
+			err = downloadSource(chans[i])
 			if err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 
-	for _, source := range sources {
-		err, links := getSources(source)
-		if err != nil {
-			log.Fatal(err)
-		}
-		linksChan <- links
-	}
-
-	close(linksChan)
 	wg.Wait()
 }
 
-func getSources(source *repository.Source) (error, []string) {
+func splitWork(numWorkers int, queue []string) []chan string {
+	var chans []chan string
+	n := float64(len(queue))
+	itemsPerWorker := int(math.Ceil(n / float64(numWorkers)))
+
+	for i := 0; i < numWorkers; i++ {
+		chans = append(chans, make(chan string, itemsPerWorker))
+	}
+
+	for i, item := range queue {
+		chans[i%numWorkers] <- item
+	}
+
+	for _, c := range chans {
+		close(c)
+	}
+
+	return chans
+}
+
+func getSources(sources []*repository.Source) (error, []string) {
 	const (
 		seleniumPath    = "dist/selenium-server.jar"
 		geckoDriverPath = "dist/geckodriver"
@@ -76,7 +95,6 @@ func getSources(source *repository.Source) (error, []string) {
 		selenium.Output(os.Stderr),            // Output debug information to STDERR.
 	}
 
-	log.Println("opening selenium")
 	service, err := selenium.NewSeleniumService(seleniumPath, port, opts...)
 	if err != nil {
 		return err, nil
@@ -90,28 +108,30 @@ func getSources(source *repository.Source) (error, []string) {
 	}
 	defer wd.Quit()
 
-	if err := wd.Get(source.Url); err != nil {
-		panic(err)
-	}
+	var urls []string
+	for _, source := range sources {
+		if err := wd.Get(source.Url); err != nil {
+			panic(err)
+		}
 
-	elems, err := wd.FindElements(selenium.ByCSSSelector, source.Selector)
-	if err != nil {
-		panic(err)
-	}
+		elems, err := wd.FindElements(selenium.ByCSSSelector, source.Selector)
+		if err != nil {
+			panic(err)
+		}
 
-    var urls []string
-	for _, e := range elems {
-		val, err := e.GetAttribute("href")
-		if err == nil {
-			path := fmt.Sprintf("%s%s\n", source.Prefix, val)
-			urls = append(urls, path)
+		for _, e := range elems {
+			val, err := e.GetAttribute("href")
+			if err == nil {
+				path := fmt.Sprintf("%s%s\n", source.Prefix, val)
+				urls = append(urls, path)
+			}
 		}
 	}
 
-    return nil, urls
+	return nil, urls
 }
 
-func downloadSource(urls <-chan []string) error {
+func downloadSource(urls <-chan string) error {
 	cmd := exec.Command("yt-dlp",
 		"--throttled-rate",
 		"50K",
@@ -135,14 +155,10 @@ func downloadSource(urls <-chan []string) error {
 		return err
 	}
 
-	for i, v := range <-urls {
-		_, err = stdin.Write([]byte(v))
+	for url := range urls {
+		_, err = stdin.Write([]byte(url))
 		if err != nil {
 			return err
-		}
-
-		if i == 5 {
-			break
 		}
 	}
 
