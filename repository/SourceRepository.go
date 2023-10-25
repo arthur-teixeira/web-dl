@@ -11,7 +11,6 @@ type Source struct {
     Url string `field:"url"`
     Prefix string `field:"prefix"`
     Selector string `field:"selector"`
-    Name string `field:"name"`
 }
 
 func NewSourceRepository(db *sql.DB) *SourceRepository {
@@ -23,14 +22,14 @@ func NewSourceRepository(db *sql.DB) *SourceRepository {
 func (repo SourceRepository) GetSources() ([]*Source, error) {
     sources := make([]*Source, 0)
 
-    rows, err := repo.db.Query("SELECT id, url, prefix, selector, name FROM sources")
+    rows, err := repo.db.Query("SELECT id, url, prefix, selector FROM sources")
     if err != nil {
         return nil, err
     }
 
     for rows.Next() {
         source := new(Source)
-        err = rows.Scan(&source.Id, &source.Url, &source.Prefix, &source.Selector, &source.Name)
+        err = rows.Scan(&source.Id, &source.Url, &source.Prefix, &source.Selector)
         if err != nil {
             return nil, err
         }
