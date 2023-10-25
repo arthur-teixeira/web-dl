@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
@@ -9,9 +11,6 @@ import (
 	"sync"
 	"web-dl/db"
 	"web-dl/repository"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -20,24 +19,24 @@ func main() {
 		log.Fatalln("Could not load .env file")
 	}
 
-    db, err := db.GetConn()
-    if err != nil {
-        log.Fatal(err)
-    }
+	db, err := db.GetConn()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    migration := repository.NewMigrationRepository(db)
-    err = migration.Migrate()
-    if err != nil {
-        log.Fatal(err)
-    }
+	migration := repository.NewMigrationRepository(db)
+	err = migration.Migrate()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    repo := repository.NewSourceRepository(db)
-    sources, err := repo.GetSources()
-    if err != nil {
-        log.Fatal(err)
-    }
+	repo := repository.NewSourceRepository(db)
+	sources, err := repo.GetSources()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    var wg sync.WaitGroup
+	var wg sync.WaitGroup
 	for _, source := range sources {
 		wg.Add(1)
 
@@ -46,17 +45,16 @@ func main() {
 			log.Fatal(err)
 		}
 
-        source := source
 		go func() {
 			defer wg.Done()
-			err = downloadSource(source, links)
+			err = downloadSource(links)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 
-    wg.Wait()
+	wg.Wait()
 }
 
 func getSources(source *repository.Source) (error, []string) {
@@ -78,20 +76,22 @@ func getSources(source *repository.Source) (error, []string) {
 	doc.Find(source.Selector).Each(func(i int, s *goquery.Selection) {
 		val, exists := s.Attr("href")
 		if exists {
-			urls = append(urls, val)
+            path := fmt.Sprintf("%s%s\n", source.Prefix, val)
+			urls = append(urls, path)
 		}
 	})
 
 	return nil, urls
 }
 
-func downloadSource(source *repository.Source, urls []string) error {
+func downloadSource(urls []string) error {
 	cmd := exec.Command("yt-dlp",
 		"--throttled-rate",
 		"50K",
 		"-N 4",
 		"-P",
-		fmt.Sprintf("%s/%s", os.Getenv("DESTINATION"), source.Name),
+		os.Getenv("DESTINATION"),
+		"-o%(uploader)s/%(title)s.%(ext)s",
 		"-a",
 		"-",
 	)
@@ -109,8 +109,7 @@ func downloadSource(source *repository.Source, urls []string) error {
 	}
 
 	for i, v := range urls {
-		path := fmt.Sprintf("%s%s\n", source.Prefix, v)
-		_, err = stdin.Write([]byte(path))
+		_, err = stdin.Write([]byte(v))
 		if err != nil {
 			return err
 		}
